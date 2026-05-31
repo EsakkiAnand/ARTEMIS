@@ -1,0 +1,28 @@
+# Virtual Environment
+venv/
+.pytest_cache/
+
+# Python Cache and Compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node Modules and Build files
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Editor Configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db

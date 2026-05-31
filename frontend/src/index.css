@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0b0c10] text-[#c5c6c7] font-sans;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-[#1f2833]/80 backdrop-blur-md border border-[#45a29e]/30 rounded-xl shadow-[0_4px_30px_rgba(0,0,0,0.5)];
+  }
+  
+  .neon-text {
+    @apply text-[#66fcf1] drop-shadow-[0_0_8px_rgba(102,252,241,0.8)];
+  }
+  
+  .btn-primary {
+    @apply bg-[#45a29e] hover:bg-[#66fcf1] text-[#0b0c10] font-bold py-2 px-4 rounded transition-all duration-300 shadow-[0_0_10px_rgba(69,162,158,0.5)] hover:shadow-[0_0_15px_rgba(102,252,241,0.8)];
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded transition-all duration-300 shadow-[0_0_10px_rgba(220,38,38,0.5)] hover:shadow-[0_0_15px_rgba(239,68,68,0.8)];
+  }
+}

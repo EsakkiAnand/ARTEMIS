@@ -1,0 +1,10 @@
+Flask==3.0.3
+Flask-SocketIO==5.3.6
+docker==7.1.0
+langchain==0.2.1
+langchain-openai==0.1.7
+stable-baselines3==2.3.2
+gymnasium==0.29.1
+shap==0.45.0
+networkx==3.3
+xgboost==2.0.3

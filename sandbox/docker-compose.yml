@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  metasploitable2:
+    image: tleemcjr/metasploitable2
+    container_name: artemis_target_msf2
+    networks:
+      - artemis_sandbox
+    ports:
+      # Expose some ports for testing purposes, or keep internal.
+      # Exposing for now to allow external access if needed, but in production we only want internal.
+      # For safety, let's bind to localhost only so it's not exposed to the local network.
+      - "127.0.0.1:2121:21"
+      - "127.0.0.1:2222:22"
+      - "127.0.0.1:2323:23"
+      - "127.0.0.1:8080:80"
+    restart: unless-stopped
+    # Prevent the container from having outward internet access
+    # We will enforce this via docker networking
+
+networks:
+  artemis_sandbox:
+    driver: bridge
+    internal: true # This makes the network internal (no outbound internet)
