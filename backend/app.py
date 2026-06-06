@@ -1,85 +1,281 @@
-import threading
+import eventlet
+eventlet.monkey_patch()
+
 import time
+import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, emit
+
 from sandbox_controller import SandboxController
-from llm_planner import generate_attack_plan
+from llm_planner import generate_attack_plan, generate_recommendations, generate_adaptive_strategy
 from rl_agent import ArtemisEnv, get_rl_agent
-from defense_analysis import generate_shap_values
+from defense_analysis import generate_shap_values, generate_countermeasure_report
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 app.config['SECRET_KEY'] = 'artemis_secret_key'
-socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Global State
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='eventlet',
+    logger=False,
+    engineio_logger=False
+)
+
+# ── Global State ──────────────────────────────────────────────────────────────
 sandbox = SandboxController()
-env = ArtemisEnv(sandbox)
-rl_agent = get_rl_agent(env)
 simulation_active = False
+sim_greenlet = None
+session_report = None
 
+
+# ── Core Simulation Loop ──────────────────────────────────────────────────────
 def run_simulation():
-    global simulation_active
-    episode_reward = 0
+    global simulation_active, session_report
+
+    env = ArtemisEnv(sandbox)
+    rl_agent = get_rl_agent(env)
+
+    episode_num = 1
+    episode_reward = 0.0
+    consecutive_failures = 0
+
     state, _ = env.reset()
-    
+    sandbox.reset_history()
+
+    socketio.emit('status_update', {'simulation': 'running', 'sandbox': sandbox.status()})
+    socketio.emit('log', {
+        'data': f'=== ARTEMIS v1.0 | Episode {episode_num} | Scenario: {sandbox.current_scenario_id.upper()} ===',
+        'level': 'info', 'success': True, 'reward': 0
+    })
+    eventlet.sleep(0.5)
+
     while simulation_active:
-        action, _states = rl_agent.predict(state, deterministic=False)
+        # RL agent selects action
+        action, _ = rl_agent.predict(state, deterministic=False)
         action_val = int(action)
-        
-        state, reward, done, truncated, info = env.step(action_val)
+
+        # Execute in mock sandbox
+        result = sandbox.execute_action(action_val)
+        reward = float(result['reward'])
         episode_reward += reward
-        
-        # Emit Logs
-        log_msg = f"[RL Agent] Action: {action_val} | Result: {info.get('message', '')} | Reward: {reward}"
-        socketio.emit('log', {'data': log_msg})
-        
-        # Emit metrics
-        socketio.emit('metrics', {'reward': episode_reward, 'step': env.step_count})
-        
-        # Emit SHAP Analysis
-        shap_vals = generate_shap_values(state)
-        socketio.emit('shap', shap_vals)
-        
-        time.sleep(1.5) # Slow down for visualization
-        
+
+        # Step the RL environment
+        state, _, done, truncated, info = env.step(action_val)
+
+        # Build data payload
+        mitre = result.get('mitre', {})
+        tech_id = mitre.get('technique_id', 'T0000')
+        tactic  = mitre.get('tactic', 'Unknown')
+        conf    = result.get('confidence', 0.0)
+        success = result.get('success', False)
+        step_n  = result.get('step', env.step_count)
+
+        if success:
+            consecutive_failures = 0
+        else:
+            consecutive_failures += 1
+
+        # ── Emit: terminal log ────────────────────────────────────────────
+        socketio.emit('log', {
+            'data': (
+                f"[Step {step_n:02d}] {result['message']}"
+                f" | {tech_id} ({tactic})"
+                f" | Conf: {conf:.0%}"
+                f" | Reward: {reward:+.1f}"
+            ),
+            'level': 'success' if success else 'fail',
+            'success': success,
+            'reward': reward,
+            'mitre': tech_id,
+            'tactic': tactic,
+            'step': step_n
+        })
+
+        # ── Emit: RL metrics ──────────────────────────────────────────────
+        socketio.emit('metrics', {
+            'reward': round(episode_reward, 2),
+            'step': step_n,
+            'action': action_val,
+            'success': success
+        })
+
+        # ── Emit: SHAP values ─────────────────────────────────────────────
+        socketio.emit('shap', generate_shap_values(state))
+
+        # ── Emit: attack graph ────────────────────────────────────────────
+        socketio.emit('attack_graph', sandbox.get_attack_graph())
+
+        # ── Emit: step for timeline ───────────────────────────────────────
+        socketio.emit('step_update', {
+            'step': step_n,
+            'action_id': action_val,
+            'message': result['message'],
+            'success': success,
+            'reward': reward,
+            'mitre': mitre,
+            'confidence': conf
+        })
+
+        # ── Adaptive re-plan after 2 consecutive failures ─────────────────
+        if consecutive_failures >= 2:
+            hist = sandbox.get_episode_history()
+            recent = [f"{s['message']} -> FAIL" for s in hist[-3:]]
+            new_plan = generate_adaptive_strategy(recent)
+            socketio.emit('adaptive_plan', {'data': new_plan})
+            socketio.emit('log', {
+                'data': f'[ARTEMIS Brain] Re-planning after {consecutive_failures} consecutive failures...',
+                'level': 'warn', 'success': False, 'reward': 0
+            })
+            consecutive_failures = 0
+
+        eventlet.sleep(1.5)  # Step cadence — visible in UI
+
+        # ── Episode done ──────────────────────────────────────────────────
         if done or truncated:
-            socketio.emit('log', {'data': f"--- Episode Finished! Total Reward: {episode_reward} ---"})
+            hist = sandbox.get_episode_history()
+            report = generate_countermeasure_report(hist)
+            session_report = report
+
+            socketio.emit('log', {
+                'data': (
+                    f"{'='*50}\n"
+                    f"Episode {episode_num} complete | "
+                    f"Total Reward: {episode_reward:.1f} | "
+                    f"Steps: {step_n} | "
+                    f"Compromised: {len(sandbox.active_nodes)-1} nodes"
+                ),
+                'level': 'info', 'success': True, 'reward': episode_reward
+            })
+            socketio.emit('countermeasure_report', report)
+
+            # Recommendations
+            structured = sandbox.get_recommendations()
+            socketio.emit('recommendations', structured)
+
+            episode_num   += 1
+            episode_reward = 0.0
+            consecutive_failures = 0
             state, _ = env.reset()
-            episode_reward = 0
-            time.sleep(2)
+            sandbox.reset_history()
+
+            eventlet.sleep(4)
+
+            if simulation_active:
+                socketio.emit('log', {
+                    'data': f'=== ARTEMIS v1.0 | Episode {episode_num} | Scenario: {sandbox.current_scenario_id.upper()} ===',
+                    'level': 'info', 'success': True, 'reward': 0
+                })
+
+    socketio.emit('status_update', {'simulation': 'stopped', 'sandbox': sandbox.status()})
+    socketio.emit('log', {
+        'data': '=== Simulation stopped by user ===',
+        'level': 'warn', 'success': False, 'reward': 0
+    })
+
+
+# ── API Routes ────────────────────────────────────────────────────────────────
 
 @app.route('/api/status', methods=['GET'])
 def get_status():
     return jsonify({
-        "sandbox": sandbox.status(),
-        "simulation": "running" if simulation_active else "stopped"
+        'sandbox':    sandbox.status(),
+        'simulation': 'running' if simulation_active else 'stopped',
+        'scenario':   sandbox.current_scenario_id
     })
+
 
 @app.route('/api/plan', methods=['GET'])
 def get_plan():
-    target_info = "Target IP: 127.0.0.1\nOS: Linux (Metasploitable 2)\nKnown Ports: 21, 22, 80"
-    plan = generate_attack_plan(target_info)
-    return jsonify({"plan": plan})
+    target_info = (
+        f"Target: 127.0.0.1 (Metasploitable 2 — Mock Mode)\n"
+        f"Scenario: {sandbox.current_scenario_id}\n"
+        f"Known Services: FTP/21, SSH/22, HTTP/80\nOS: Linux"
+    )
+    return jsonify({'plan': generate_attack_plan(target_info)})
+
 
 @app.route('/api/start', methods=['POST'])
 def start_sim():
-    global simulation_active
-    if not simulation_active:
-        sandbox.start()
-        simulation_active = True
-        threading.Thread(target=run_simulation, daemon=True).start()
-        return jsonify({"message": "Simulation started."})
-    return jsonify({"message": "Simulation already running."})
+    global simulation_active, sim_greenlet
+    if simulation_active:
+        return jsonify({'message': 'Already running.'}), 400
+    sandbox.start()
+    simulation_active = True
+    sim_greenlet = socketio.start_background_task(run_simulation)
+    return jsonify({'message': 'Simulation started.'})
+
 
 @app.route('/api/stop', methods=['POST'])
 def stop_sim():
     global simulation_active
     simulation_active = False
     sandbox.stop()
-    return jsonify({"message": "Simulation stopped."})
+    return jsonify({'message': 'Simulation stopped.'})
+
+
+@app.route('/api/attack-graph', methods=['GET'])
+def get_attack_graph():
+    return jsonify(sandbox.get_attack_graph())
+
+
+@app.route('/api/recommendations', methods=['GET'])
+def get_recommendations():
+    hist = sandbox.get_episode_history()
+    llm = generate_recommendations(hist)
+    structured = sandbox.get_recommendations()
+    return jsonify({'structured': structured, 'llm_summary': llm})
+
+
+@app.route('/api/scenarios', methods=['GET'])
+def get_scenarios():
+    return jsonify({'scenarios': sandbox.get_scenarios()})
+
+
+@app.route('/api/scenarios/<scenario_id>/set', methods=['POST'])
+def set_scenario(scenario_id):
+    if simulation_active:
+        return jsonify({'error': 'Stop simulation first.'}), 400
+    if sandbox.set_scenario(scenario_id):
+        return jsonify({'message': f"Scenario '{scenario_id}' activated."})
+    return jsonify({'error': 'Unknown scenario.'}), 404
+
+
+@app.route('/api/episode-history', methods=['GET'])
+def get_episode_history():
+    return jsonify({'history': sandbox.get_episode_history()})
+
+
+@app.route('/api/report', methods=['GET'])
+def get_report():
+    global session_report
+    if session_report:
+        return jsonify(session_report)
+    hist = sandbox.get_episode_history()
+    return jsonify(generate_countermeasure_report(hist))
+
+
+# ── WebSocket Events ──────────────────────────────────────────────────────────
+
+@socketio.on('connect')
+def handle_connect():
+    print(f'[WS] Client connected: {request.sid}')
+    emit('attack_graph', sandbox.get_attack_graph())
+    emit('log', {
+        'data': 'ARTEMIS Terminal ready. Click "Start Simulation" to begin autonomous attack.',
+        'level': 'info', 'success': True, 'reward': 0
+    })
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print(f'[WS] Client disconnected: {request.sid}')
+
+
+# ── Entry Point ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    # Disable the reloader to prevent PyTorch [WinError 1114] in the child process on Windows
-    socketio.run(app, debug=False, use_reloader=False, port=5000, allow_unsafe_werkzeug=True)
+    print('[ARTEMIS] Starting server on http://127.0.0.1:5000')
+    socketio.run(app, debug=False, use_reloader=False, port=5000, host='0.0.0.0')

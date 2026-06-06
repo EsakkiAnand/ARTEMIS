@@ -1,34 +1,89 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
+import { Terminal, Filter } from 'lucide-react';
 
-const TerminalLog = ({ logs }) => {
-  const endOfLogRef = useRef(null);
+const LEVEL_STYLES = {
+  success: { color: 'text-[var(--c-green)]',  prefix: '✓', badge: 'bg-green-950 text-[var(--c-green)]' },
+  fail:    { color: 'text-[var(--c-red)]',    prefix: '✗', badge: 'bg-red-950 text-[var(--c-red)]' },
+  warn:    { color: 'text-[var(--c-yellow)]', prefix: '⚠', badge: 'bg-yellow-950 text-[var(--c-yellow)]' },
+  info:    { color: 'text-[var(--c-cyan)]',   prefix: '›', badge: 'bg-cyan-950 text-[var(--c-cyan)]' },
+};
 
+const TerminalLog = ({ logs = [] }) => {
+  const bottomRef = useRef(null);
+  const [filter, setFilter] = useState('all');
+
+  // Auto-scroll to bottom on new logs
   useEffect(() => {
-    endOfLogRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs.length]);
+
+  const filtered = filter === 'all'
+    ? logs
+    : logs.filter(l => l.level === filter || (filter === 'success' && l.success) || (filter === 'fail' && !l.success));
 
   return (
-    <div className="glass-panel p-4 h-64 flex flex-col">
-      <div className="flex items-center mb-2 border-b border-[#45a29e]/30 pb-2">
-        <div className="flex space-x-2">
-          <div className="w-3 h-3 rounded-full bg-red-500"></div>
-          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+    <div className="glass-panel p-4 flex flex-col h-64">
+      {/* Header */}
+      <div className="panel-header flex items-center">
+        <div className="flex gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-[var(--c-red)]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[var(--c-yellow)]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[var(--c-green)]" />
         </div>
-        <h3 className="ml-4 font-mono text-[#66fcf1] text-sm tracking-widest">ARTEMIS // Terminal</h3>
+        <span className="ml-3 text-xs font-mono text-[var(--c-cyan)] tracking-widest flex items-center gap-1">
+          <Terminal size={12} /> ARTEMIS // Terminal Output
+        </span>
+        {/* Filter buttons */}
+        <div className="ml-auto flex gap-1">
+          {['all', 'success', 'fail'].map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`text-[10px] px-2 py-0.5 rounded font-mono transition-colors ${
+                filter === f
+                  ? 'bg-[var(--c-cyan)] text-[#060810] font-bold'
+                  : 'text-[var(--c-text-dim)] hover:text-[var(--c-text)]'
+              }`}
+            >
+              {f === 'all' ? 'All' : f === 'success' ? '✓ OK' : '✗ Fail'}
+            </button>
+          ))}
+        </div>
+        <span className="ml-2 text-[10px] text-[var(--c-text-dim)] font-mono">
+          {filtered.length} / {logs.length} entries
+        </span>
       </div>
-      <div className="flex-1 overflow-y-auto font-mono text-sm text-[#c5c6c7]">
-        {logs.length === 0 ? (
-          <p className="opacity-50 italic">Waiting for simulation data...</p>
+
+      {/* Log entries */}
+      <div className="flex-1 overflow-y-auto font-mono text-[11px] space-y-1 pr-1">
+        {filtered.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-[var(--c-text-dim)] text-xs">Waiting for simulation data...</p>
+          </div>
         ) : (
-          logs.map((log, i) => (
-            <div key={i} className="mb-1">
-              <span className="text-[#45a29e] mr-2">root@artemis:~#</span>
-              <span className={log.includes("Reward: -") ? "text-red-400" : log.includes("Reward:") ? "text-green-400" : ""}>{log}</span>
-            </div>
-          ))
+          filtered.map((log, i) => {
+            const lvl = log.level || (log.success ? 'success' : 'fail');
+            const style = LEVEL_STYLES[lvl] || LEVEL_STYLES.info;
+            return (
+              <div key={i} className={`animate-slide-in flex items-start gap-2 ${style.color}`}>
+                <span className="flex-shrink-0 opacity-70">{style.prefix}</span>
+                <span className="break-all leading-relaxed">{log.data}</span>
+                {log.mitre && (
+                  <span className={`ml-auto flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded font-bold ${style.badge}`}>
+                    {log.mitre}
+                  </span>
+                )}
+              </div>
+            );
+          })
         )}
-        <div ref={endOfLogRef} />
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Cursor line */}
+      <div className="mt-2 flex items-center gap-1 border-t border-[var(--c-border)] pt-2">
+        <span className="text-[var(--c-cyan)] font-mono text-[11px]">root@artemis:~$</span>
+        <span className="w-2 h-3.5 bg-[var(--c-cyan)] terminal-cursor" />
       </div>
     </div>
   );
