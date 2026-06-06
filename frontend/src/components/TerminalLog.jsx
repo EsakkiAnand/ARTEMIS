@@ -55,7 +55,7 @@ const TerminalLog = ({ logs = [] }) => {
       </div>
 
       {/* Log entries */}
-      <div className="flex-1 overflow-y-auto font-mono text-[11px] space-y-1 pr-1">
+      <div className="flex-1 overflow-y-auto font-mono text-[11px] space-y-1 pr-1 touch-scroll">
         {filtered.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-[var(--c-text-dim)] text-xs">Waiting for simulation data...</p>

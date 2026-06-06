@@ -26,7 +26,11 @@
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
 
-  html { scroll-behavior: smooth; }
+  html {
+    scroll-behavior: smooth;
+    /* Use dvh on mobile for correct viewport height (avoids browser chrome overlap) */
+    height: -webkit-fill-available;
+  }
 
   body {
     background-color: var(--c-bg);
@@ -34,6 +38,15 @@
     font-family: 'Space Grotesk', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+    /* Allow momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* Safe area support for notched/dynamic-island devices */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Prevent unwanted zoom on input focus on iOS */
+  input, select, textarea {
+    font-size: 16px;
   }
 
   ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -101,6 +114,17 @@
     background-image:
       radial-gradient(circle, rgba(99,210,201,0.12) 1px, transparent 1px);
     background-size: 32px 32px;
+  }
+
+  /* Mobile bottom tab safe area (notch/dynamic-island support) */
+  .bottom-tab-safe {
+    padding-bottom: max(0.625rem, env(safe-area-inset-bottom));
+  }
+
+  /* Touch scrollable panels */
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 }
 

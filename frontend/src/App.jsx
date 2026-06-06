@@ -19,10 +19,23 @@ function AppInner() {
   const sim = useSimulation();
   return (
     <BrowserRouter>
+      {/*
+        Layout:
+        - md+: flex row — sidebar (220px) + scrollable main
+        - mobile: full-width stack — fixed top bar (57px) + scrollable main + fixed bottom tabs (57px)
+      */}
       <div className="relative flex min-h-screen">
         <BG />
         <Navbar status={sim.status} />
-        <main className="flex-1 p-6 overflow-y-auto relative z-10 min-w-0">
+        <main
+          className={[
+            'flex-1 overflow-y-auto relative z-10 min-w-0',
+            /* Desktop padding */
+            'md:p-6',
+            /* Mobile: push content below top bar and above bottom tabs */
+            'p-4 pt-[73px] pb-[73px]',
+          ].join(' ')}
+        >
           <Routes>
             <Route path="/"          element={<DashboardPage sim={sim} />} />
             <Route path="/scenarios" element={<ScenariosPage sim={sim} />} />

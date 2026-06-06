@@ -36,13 +36,13 @@ const DashboardPage = ({ sim }) => {
     <div className="flex flex-col gap-5 h-full">
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-[var(--c-text)]">Simulation Dashboard</h2>
           <p className="text-xs text-[var(--c-text-dim)] mt-0.5">Real-time autonomous red team monitoring</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 glass-panel px-3 py-1.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 glass-panel px-3 py-1.5 flex-1 sm:flex-none">
             <Server size={12} className="text-[var(--c-text-dim)]" />
             <span className="text-xs text-[var(--c-text-dim)]">Sandbox:</span>
             <span className={`badge ${
@@ -53,12 +53,12 @@ const DashboardPage = ({ sim }) => {
           </div>
 
           {status === 'stopped' ? (
-            <button id="start-simulation-btn" onClick={startSim} disabled={loading} className="btn-primary">
+            <button id="start-simulation-btn" onClick={startSim} disabled={loading} className="btn-primary flex-1 sm:flex-none justify-center">
               {loading ? <RefreshCw size={15} className="animate-spin" /> : <Play size={15} />}
               Start Simulation
             </button>
           ) : (
-            <button id="stop-simulation-btn" onClick={stopSim} disabled={loading} className="btn-danger">
+            <button id="stop-simulation-btn" onClick={stopSim} disabled={loading} className="btn-danger flex-1 sm:flex-none justify-center">
               {loading ? <RefreshCw size={15} className="animate-spin" /> : <Square size={15} />}
               Stop
             </button>
@@ -67,7 +67,7 @@ const DashboardPage = ({ sim }) => {
       </div>
 
       {/* ── Stat Cards ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         <StatCard
           label="Simulation"
           value={status.toUpperCase()}
@@ -94,7 +94,7 @@ const DashboardPage = ({ sim }) => {
       </div>
 
       {/* ── LLM Plan + Terminal ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         {/* LLM Plan / Adaptive plan */}
         <div className="glass-panel p-4 max-h-52 overflow-y-auto">
           <div className="panel-header">
@@ -123,7 +123,7 @@ const DashboardPage = ({ sim }) => {
       </div>
 
       {/* ── Attack Graph + Recommendations ──────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
         <div className="lg:col-span-2">
           <AttackGraph graphData={attackGraph} />
         </div>
@@ -133,7 +133,7 @@ const DashboardPage = ({ sim }) => {
       </div>
 
       {/* ── Metrics + SHAP ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <MetricsChart data={metrics} />
         <ShapAnalysis data={shapData} />
       </div>

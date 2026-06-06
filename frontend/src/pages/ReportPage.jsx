@@ -43,20 +43,20 @@ const ReportPage = ({ sim }) => {
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-[var(--c-text)]">Session Report</h2>
           <p className="text-xs text-[var(--c-text-dim)] mt-0.5">
             Full simulation results, MITRE kill chain, and countermeasure recommendations
           </p>
         </div>
-        <button onClick={handleExport} className="btn-ghost text-xs">
+        <button onClick={handleExport} className="btn-ghost text-xs self-start sm:self-auto">
           <Download size={13} /> Export Full Report (JSON)
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
         {[
           { label: 'Total Steps',   value: summary.total_steps,         color: 'var(--c-text)'   },
           { label: 'Successful',    value: summary.successful_attacks,   color: 'var(--c-green)'  },
@@ -128,7 +128,7 @@ const ReportPage = ({ sim }) => {
       <EpisodeTimeline history={episodeHistory} />
 
       {/* Metrics + SHAP */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <MetricsChart data={metrics} />
         <ShapAnalysis data={shapData} />
       </div>
