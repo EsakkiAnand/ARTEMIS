@@ -178,6 +178,10 @@ def run_simulation():
 
 # ── API Routes ────────────────────────────────────────────────────────────────
 
+@app.route('/', methods=['GET'])
+def index():
+    return jsonify({'status': 'ARTEMIS Backend is running successfully!'})
+
 @app.route('/api/status', methods=['GET'])
 def get_status():
     return jsonify({
