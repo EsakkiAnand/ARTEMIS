@@ -1,6 +1,7 @@
 from gevent import monkey
 monkey.patch_all()
 
+import re
 import time
 import os
 from flask import Flask, jsonify, request
@@ -13,12 +14,34 @@ from rl_agent import ArtemisEnv, get_rl_agent
 from defense_analysis import generate_shap_values, generate_countermeasure_report
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+
+# ── CORS Configuration ────────────────────────────────────────────────────────
+# Allow all Vercel preview/production deployments + localhost dev
+# NOTE: supports_credentials must NOT be used with "*" — use explicit origins.
+ALLOWED_ORIGINS = [
+    r"https://.*\.vercel\.app",   # All Vercel preview + production URLs
+    r"http://localhost:\d+",        # Local dev
+    r"http://127\.0\.0\.1:\d+",   # Local dev alternative
+]
+
+def _cors_origin_allowed(origin):
+    if not origin:
+        return False
+    return any(re.fullmatch(pat, origin) for pat in ALLOWED_ORIGINS)
+
+CORS(
+    app,
+    origins=_cors_origin_allowed,
+    supports_credentials=False,
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "OPTIONS"],
+)
+
 app.config['SECRET_KEY'] = 'artemis_secret_key'
 
 socketio = SocketIO(
     app,
-    cors_allowed_origins="*",
+    cors_allowed_origins=_cors_origin_allowed,
     async_mode='gevent',
     logger=False,
     engineio_logger=False
