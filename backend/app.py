@@ -277,5 +277,6 @@ def handle_disconnect():
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    print('[ARTEMIS] Starting server on http://127.0.0.1:5000')
-    socketio.run(app, debug=False, use_reloader=False, port=5000, host='0.0.0.0')
+    port = int(os.environ.get('PORT', 5000))
+    print(f'[ARTEMIS] Starting server on http://0.0.0.0:{port}')
+    socketio.run(app, debug=False, use_reloader=False, port=port, host='0.0.0.0')
