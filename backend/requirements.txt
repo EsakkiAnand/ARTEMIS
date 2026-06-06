@@ -9,6 +9,6 @@ gymnasium==1.0.0
 numpy==1.26.4
 networkx==3.4.2
 docker==7.1.0
-langchain-openai==0.3.22
+langchain-groq==0.2.1
 langchain-core==0.3.65
 shap==0.46.0

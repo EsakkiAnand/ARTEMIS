@@ -2,7 +2,7 @@ import os
 
 # Try to import langchain; fall back gracefully if not available
 try:
-    from langchain_openai import ChatOpenAI
+    from langchain_groq import ChatGroq
     from langchain_core.messages import HumanMessage, SystemMessage
     LANGCHAIN_AVAILABLE = True
 except ImportError:
@@ -10,10 +10,10 @@ except ImportError:
 
 
 def _get_llm(temperature=0.7):
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not LANGCHAIN_AVAILABLE or not api_key:
         return None
-    return ChatOpenAI(temperature=temperature, model_name="gpt-4o-mini", api_key=api_key)
+    return ChatGroq(temperature=temperature, model_name="llama3-8b-8192", api_key=api_key)
 
 
 # ── Attack Plan ───────────────────────────────────────────────────────────────
