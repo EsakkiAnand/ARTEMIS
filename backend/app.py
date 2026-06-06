@@ -1,5 +1,5 @@
-import eventlet
-eventlet.monkey_patch()
+from gevent import monkey
+monkey.patch_all()
 
 import time
 import os
@@ -19,7 +19,7 @@ app.config['SECRET_KEY'] = 'artemis_secret_key'
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
-    async_mode='eventlet',
+    async_mode='gevent',
     logger=False,
     engineio_logger=False
 )
@@ -50,7 +50,7 @@ def run_simulation():
         'data': f'=== ARTEMIS v1.0 | Episode {episode_num} | Scenario: {sandbox.current_scenario_id.upper()} ===',
         'level': 'info', 'success': True, 'reward': 0
     })
-    eventlet.sleep(0.5)
+    time.sleep(0.5)
 
     while simulation_active:
         # RL agent selects action
@@ -131,7 +131,7 @@ def run_simulation():
             })
             consecutive_failures = 0
 
-        eventlet.sleep(1.5)  # Step cadence — visible in UI
+        time.sleep(1.5)  # Step cadence — visible in UI
 
         # ── Episode done ──────────────────────────────────────────────────
         if done or truncated:
@@ -161,7 +161,7 @@ def run_simulation():
             state, _ = env.reset()
             sandbox.reset_history()
 
-            eventlet.sleep(4)
+            time.sleep(4)
 
             if simulation_active:
                 socketio.emit('log', {
